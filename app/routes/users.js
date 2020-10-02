@@ -1,5 +1,7 @@
 const express = require("express");
 const router = express.Router();
+const bcrypt = require("bcryptjs");
+const User = require("../models/User");
 
 router.get("/login", function (req, res) {
   res.render("login");
@@ -27,11 +29,38 @@ router.post("/register", function (req, res) {
 
   if (errors.length > 0) {
     res.render("register", { errors, name, email, password, vpassword });
-    console.log('====================================');
-    console.log(errors);
-    console.log('====================================');
   } else {
-    res.send("pass");
+    User.findOne({ email: email })
+      .then((user) => {
+        if (user) {
+          // User Exist
+          errors.push({ message: "email has aleready taken" });
+          res.render("register", { errors, name, email, password, vpassword });
+        } else {
+          const newUser = new User({
+            name,
+            email,
+            password,
+          });
+          // Hash password
+          bcrypt.genSalt(10, (err, salt) =>
+            bcrypt.hash(newUser.password, salt, (err, hash) => {
+              if (err) throw err;
+              newUser.password = hash;
+              newUser
+                .save()
+                .then((user) => {
+                  req.flash("success_msg", "You are registered");
+                  res.redirect("/users/login");
+                })
+                .catch((err) => {
+                  console.log(err);
+                });
+            })
+          );
+        }
+      })
+      .catch((err) => {});
   }
 });
 module.exports = router;
